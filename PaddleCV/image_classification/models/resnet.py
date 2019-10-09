@@ -30,7 +30,7 @@ __all__ = [
 class ResNet():
     def __init__(self, layers=50):
         self.layers = layers
-
+        self.checkpoints = []
     def net(self, input, class_dim=1000):
         layers = self.layers
         supported_layers = [18, 34, 50, 101, 152]
@@ -54,12 +54,14 @@ class ResNet():
             stride=2,
             act='relu',
             name="conv1")
+        self.checkpoints.append(conv)
         conv = fluid.layers.pool2d(
             input=conv,
             pool_size=3,
             pool_stride=2,
             pool_padding=1,
             pool_type='max')
+        self.checkpoints.append(conv)
         if layers >= 50:
             for block in range(len(depth)):
                 for i in range(depth[block]):
@@ -75,15 +77,18 @@ class ResNet():
                         num_filters=num_filters[block],
                         stride=2 if i == 0 and block != 0 else 1,
                         name=conv_name)
+                    self.checkpoints.append(conv)
 
             pool = fluid.layers.pool2d(
                 input=conv, pool_type='avg', global_pooling=True)
+            self.checkpoints.append(pool)
             stdv = 1.0 / math.sqrt(pool.shape[1] * 1.0)
             out = fluid.layers.fc(
                 input=pool,
                 size=class_dim,
                 param_attr=fluid.param_attr.ParamAttr(
                     initializer=fluid.initializer.Uniform(-stdv, stdv)))
+            self.checkpoints.append(out)
         else:
             for block in range(len(depth)):
                 for i in range(depth[block]):

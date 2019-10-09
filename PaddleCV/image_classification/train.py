@@ -72,12 +72,15 @@ def build_program(is_train, main_prog, startup_prog, args):
             # add backward op in program
             if is_train:
                 optimizer = create_optimizer(args)
+                optimizer = fluid.optimizer.RecomputeOptimizer(optimizer)
+                print(model.checkpoints)
+                optimizer._set_checkpoints(model.checkpoints)
                 avg_cost = loss_out[0]
                 optimizer.minimize(avg_cost)
                 #XXX: fetch learning rate now, better implement is required here. 
-                global_lr = optimizer._global_learning_rate()
-                global_lr.persistable = True
-                loss_out.append(global_lr)
+                #global_lr = optimizer._global_learning_rate()
+                #global_lr.persistable = True
+                #loss_out.append(global_lr)
                 if args.use_ema:
                     global_steps = fluid.layers.learning_rate_scheduler._decay_step_counter()
                     ema = ExponentialMovingAverage(args.ema_decay, thres_steps=global_steps)
@@ -181,11 +184,10 @@ def train(args):
     train_py_reader.decorate_sample_list_generator(train_reader, place)
     test_py_reader.decorate_sample_list_generator(test_reader, place)
 
-    compiled_train_prog = best_strategy_compiled(args, train_prog,
-                                                 train_fetch_vars[0])
+    #compiled_train_prog = best_strategy_compiled(args, train_prog, train_fetch_vars[0])
 
     for pass_id in range(args.num_epochs):
-
+        begin_time = time.time()
         train_batch_id = 0
         train_batch_time_record = []
         train_batch_metrics_record = []
@@ -195,8 +197,8 @@ def train(args):
         try:
             while True:
                 t1 = time.time()
-                train_batch_metrics = exe.run(compiled_train_prog,
-                                              fetch_list=train_fetch_list)
+                #train_batch_metrics = exe.run(compiled_train_prog, fetch_list=train_fetch_list, use_program_cache=True)
+                train_batch_metrics = exe.run(train_prog, fetch_list=train_fetch_list, use_program_cache=True)
                 t2 = time.time()
                 train_batch_elapse = t2 - t1
                 train_batch_time_record.append(train_batch_elapse)
@@ -211,6 +213,7 @@ def train(args):
 
         except fluid.core.EOFException:
             train_py_reader.reset()
+        print("epoch {}, used {} seconds".format(pass_id, time.time()-begin_time))
 
         if args.use_ema:
             print('ExponentialMovingAverage validate start...')
@@ -218,7 +221,7 @@ def train(args):
                 validate(args, test_py_reader, exe, test_prog, test_fetch_list, pass_id, train_batch_metrics_record)
             print('ExponentialMovingAverage validate over!')
 
-        validate(args, test_py_reader, exe, test_prog, test_fetch_list, pass_id, train_batch_metrics_record)
+        #validate(args, test_py_reader, exe, test_prog, test_fetch_list, pass_id, train_batch_metrics_record)
         #For now, save model per epoch.
         if pass_id % args.save_step == 0:
             save_model(args, exe, train_prog, pass_id)

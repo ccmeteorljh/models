@@ -199,7 +199,7 @@ def main(args):
 
         with fluid.program_guard(train_program, startup_prog):
             with fluid.unique_name.guard():
-                train_pyreader, loss, probs, accuracy, num_seqs = create_model(
+                train_pyreader, loss, probs, accuracy, num_seqs, bert = create_model(
                     args,
                     bert_config=bert_config,
                     num_labels=num_labels)
@@ -218,7 +218,8 @@ def main(args):
                     incr_every_n_steps=args.incr_every_n_steps,
                     decr_every_n_nan_or_inf=args.decr_every_n_nan_or_inf,
                     incr_ratio=args.incr_ratio,
-                    decr_ratio=args.decr_ratio)
+                    decr_ratio=args.decr_ratio,
+                    model=bert)
 
         if args.verbose:
             if args.in_tokens:
@@ -235,7 +236,7 @@ def main(args):
         dev_prog = fluid.Program()
         with fluid.program_guard(dev_prog, startup_prog):
             with fluid.unique_name.guard():
-                dev_pyreader, loss, probs, accuracy, num_seqs = create_model(
+                dev_pyreader, loss, probs, accuracy, num_seqs, _ = create_model(
                     args,
                     bert_config=bert_config,
                     num_labels=num_labels)
@@ -253,7 +254,7 @@ def main(args):
         test_prog = fluid.Program()
         with fluid.program_guard(test_prog, startup_prog):
             with fluid.unique_name.guard():
-                test_pyreader, loss, probs, accuracy, num_seqs = create_model(
+                test_pyreader, loss, probs, accuracy, num_seqs, _ = create_model(
                     args,
                     bert_config=bert_config,
                     num_labels=num_labels)
@@ -309,8 +310,8 @@ def main(args):
             train_data_generator = fluid.contrib.reader.distributed_batch_reader(
                   train_data_generator)
 
-        train_compiled_program = fluid.CompiledProgram(train_program).with_data_parallel(
-                 loss_name=loss.name, build_strategy=build_strategy)
+        #train_compiled_program = fluid.CompiledProgram(train_program).with_data_parallel(
+        #         loss_name=loss.name, build_strategy=build_strategy)
 
         train_pyreader.decorate_batch_generator(train_data_generator, place)
 
@@ -333,7 +334,8 @@ def main(args):
                 else:
                     fetch_list = []
 
-                outputs = exe.run(train_compiled_program, fetch_list=fetch_list)
+                #outputs = exe.run(train_compiled_program, fetch_list=fetch_list, use_program_cache=True)
+                outputs = exe.run(train_program, fetch_list=fetch_list, use_program_cache=True)
 
                 if steps % args.skip_steps == 0:
                     if args.use_fp16:

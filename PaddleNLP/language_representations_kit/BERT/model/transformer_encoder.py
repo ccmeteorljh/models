@@ -318,6 +318,7 @@ def encoder(enc_input,
     The encoder is composed of a stack of identical layers returned by calling
     encoder_layer.
     """
+    checkpoints = []
     for i in range(n_layer):
         enc_output = encoder_layer(
             enc_input,
@@ -335,8 +336,9 @@ def encoder(enc_input,
             postprocess_cmd,
             param_initializer=param_initializer,
             name=name + '_layer_' + str(i))
+        checkpoints.append(enc_output)
         enc_input = enc_output
     enc_output = pre_process_layer(
         enc_output, preprocess_cmd, prepostprocess_dropout, name="post_encoder")
 
-    return enc_output
+    return enc_output, checkpoints

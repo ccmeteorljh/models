@@ -64,7 +64,8 @@ def optimization(loss,
                  incr_every_n_steps=1000,
                  decr_every_n_nan_or_inf=2,
                  incr_ratio=2.0,
-                 decr_ratio=0.8):
+                 decr_ratio=0.8,
+                 model=None):
 
     scheduled_lr, loss_scaling = None, None
     if scheduler == 'noam_decay':
@@ -90,6 +91,8 @@ def optimization(loss,
                          "'noam_decay' or 'linear_warmup_decay'")
 
     optimizer = fluid.optimizer.Adam(learning_rate=scheduled_lr)
+    optimizer = fluid.optimizer.RecomputeOptimizer(optimizer)
+    optimizer._set_checkpoints(model.checkpoints)
     fluid.clip.set_gradient_clip(
         clip=fluid.clip.GradientClipByGlobalNorm(clip_norm=1.0))
 

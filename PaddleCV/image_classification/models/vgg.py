@@ -25,7 +25,7 @@ __all__ = ["VGGNet", "VGG11", "VGG13", "VGG16", "VGG19"]
 class VGGNet():
     def __init__(self, layers=16):
         self.layers = layers
-
+        self.checkpoints = []
     def net(self, input, class_dim=1000):
         layers = self.layers
         vgg_spec = {
@@ -66,6 +66,7 @@ class VGGNet():
             param_attr=fluid.param_attr.ParamAttr(name=fc_name[2] + "_weights"),
             bias_attr=fluid.param_attr.ParamAttr(name=fc_name[2] + "_offset"))
 
+        self.checkpoints.extend([fc1, fc2, out])
         return out
 
     def conv_block(self, input, num_filter, groups, name=None):
@@ -81,6 +82,7 @@ class VGGNet():
                 param_attr=fluid.param_attr.ParamAttr(
                     name=name + str(i + 1) + "_weights"),
                 bias_attr=False)
+            self.checkpoints.append(conv)
         return fluid.layers.pool2d(
             input=conv, pool_size=2, pool_type='max', pool_stride=2)
 

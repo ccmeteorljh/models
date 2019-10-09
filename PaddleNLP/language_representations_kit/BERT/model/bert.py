@@ -72,7 +72,7 @@ class BertModel(object):
         self._pos_emb_name = "pos_embedding"
         self._sent_emb_name = "sent_embedding"
         self._dtype = "float16" if use_fp16 else "float32"
-
+        self.checkpoints = []
         # Initialize all weigths by truncated normal initializer, and all biases 
         # will be initialized by constant zero by default.
         self._param_initializer = fluid.initializer.TruncatedNormal(
@@ -89,6 +89,7 @@ class BertModel(object):
             param_attr=fluid.ParamAttr(
                 name=self._word_emb_name, initializer=self._param_initializer),
             is_sparse=False)
+        self.checkpoints.append(emb_out)
         position_emb_out = fluid.layers.embedding(
             input=position_ids,
             size=[self._max_position_seq_len, self._emb_size],
@@ -96,31 +97,36 @@ class BertModel(object):
             param_attr=fluid.ParamAttr(
                 name=self._pos_emb_name, initializer=self._param_initializer))
 
+        self.checkpoints.append(position_emb_out)
         sent_emb_out = fluid.layers.embedding(
             sentence_ids,
             size=[self._sent_types, self._emb_size],
             dtype=self._dtype,
             param_attr=fluid.ParamAttr(
                 name=self._sent_emb_name, initializer=self._param_initializer))
+        self.checkpoints.append(sent_emb_out)
 
         emb_out = emb_out + position_emb_out
         emb_out = emb_out + sent_emb_out
 
+        self.checkpoints.append(emb_out)
         emb_out = pre_process_layer(
             emb_out, 'nd', self._prepostprocess_dropout, name='pre_encoder')
-
+        self.checkpoints.append(emb_out)
         if self._dtype == "float16":
             input_mask = fluid.layers.cast(x=input_mask, dtype=self._dtype)
 
         self_attn_mask = fluid.layers.matmul(
             x=input_mask, y=input_mask, transpose_y=True)
+        self.checkpoints.append(self_attn_mask)
         self_attn_mask = fluid.layers.scale(
             x=self_attn_mask, scale=10000.0, bias=-1.0, bias_after_scale=False)
+        self.checkpoints.append(self_attn_mask)
         n_head_self_attn_mask = fluid.layers.stack(
             x=[self_attn_mask] * self._n_head, axis=1)
         n_head_self_attn_mask.stop_gradient = True
-
-        self._enc_out = encoder(
+        self.checkpoints.append(n_head_self_attn_mask)
+        self._enc_out, checkpoints = encoder(
             enc_input=emb_out,
             attn_bias=n_head_self_attn_mask,
             n_layer=self._n_layer,
@@ -137,6 +143,7 @@ class BertModel(object):
             postprocess_cmd="dan",
             param_initializer=self._param_initializer,
             name='encoder')
+        self.checkpoints.extend(checkpoints)
 
     def get_sequence_output(self):
         return self._enc_out

@@ -80,4 +80,4 @@ def create_model(args, bert_config, num_labels, is_prediction=False):
     num_seqs = fluid.layers.create_tensor(dtype='int64')
     accuracy = fluid.layers.accuracy(input=probs, label=labels, total=num_seqs)
 
-    return pyreader, loss, probs, accuracy, num_seqs
+    return pyreader, loss, probs, accuracy, num_seqs, bert

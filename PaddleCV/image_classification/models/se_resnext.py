@@ -31,6 +31,7 @@ __all__ = [
 class SE_ResNeXt():
     def __init__(self, layers=50):
         self.layers = layers
+        self.checkpoints = []
 
     def net(self, input, class_dim=1000):
         layers = self.layers
@@ -50,6 +51,7 @@ class SE_ResNeXt():
                 stride=2,
                 act='relu',
                 name='conv1', )
+            self.checkpoints.append(conv)
             conv = fluid.layers.pool2d(
                 input=conv,
                 pool_size=3,
@@ -57,6 +59,7 @@ class SE_ResNeXt():
                 pool_padding=1,
                 pool_type='max',
                 use_cudnn=False)
+            self.checkpoints.append(conv)
         elif layers == 101:
             cardinality = 32
             reduction_ratio = 16
@@ -118,10 +121,13 @@ class SE_ResNeXt():
                     cardinality=cardinality,
                     reduction_ratio=reduction_ratio,
                     name=str(n) + '_' + str(i + 1))
+                self.checkpoints.append(conv)
 
         pool = fluid.layers.pool2d(
             input=conv, pool_type='avg', global_pooling=True, use_cudnn=False)
+        self.checkpoints.append(pool)
         drop = fluid.layers.dropout(x=pool, dropout_prob=0.5)
+        self.checkpoints.append(drop)
         stdv = 1.0 / math.sqrt(drop.shape[1] * 1.0)
         out = fluid.layers.fc(
             input=drop,
@@ -130,6 +136,7 @@ class SE_ResNeXt():
                 initializer=fluid.initializer.Uniform(-stdv, stdv),
                 name='fc6_weights'),
             bias_attr=ParamAttr(name='fc6_offset'))
+        self.checkpoints.append(out)
         return out
 
     def shortcut(self, input, ch_out, stride, name):

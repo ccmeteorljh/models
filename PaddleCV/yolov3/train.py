@@ -94,6 +94,8 @@ def train():
             warmup_factor=cfg.warm_up_factor),
         regularization=fluid.regularizer.L2Decay(cfg.weight_decay),
         momentum=cfg.momentum)
+    optimizer = fluid.optimizer.RecomputeOptimizer(optimizer)
+    optimizer._set_checkpoints(model.checkpoints)
     optimizer.minimize(loss)
 
     gpu_id = int(os.environ.get('FLAGS_selected_gpus', 0))
@@ -124,11 +126,11 @@ def train():
                                              fluid.default_main_program())
         exec_strategy.num_threads = 1
 
-    compile_program = fluid.compiler.CompiledProgram(fluid.default_main_program(
-    )).with_data_parallel(
-        loss_name=loss.name,
-        build_strategy=build_strategy,
-        exec_strategy=exec_strategy)
+    #compile_program = fluid.compiler.CompiledProgram(fluid.default_main_program(
+    #)).with_data_parallel(
+    #    loss_name=loss.name,
+    #    build_strategy=build_strategy,
+    #    exec_strategy=exec_strategy)
 
     random_sizes = [cfg.input_size]
     if cfg.random_shape:
@@ -175,8 +177,7 @@ def train():
         for iter_id in range(cfg.start_iter, cfg.max_iter):
             prev_start_time = start_time
             start_time = time.time()
-            losses = exe.run(compile_program,
-                             fetch_list=[v.name for v in fetch_list])
+            losses = exe.run(fetch_list=[v.name for v in fetch_list])
             smoothed_loss.add_value(np.mean(np.array(losses[0])))
             snapshot_loss += np.mean(np.array(losses[0]))
             snapshot_time += start_time - prev_start_time

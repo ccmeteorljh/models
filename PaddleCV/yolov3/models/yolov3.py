@@ -89,6 +89,7 @@ class YOLOv3(object):
         self.outputs = []
         self.losses = []
         self.downsample = 32
+        self.checkpoints = []
 
     def build_input(self):
         self.image_shape = [3, cfg.input_size, cfg.input_size]
@@ -131,7 +132,8 @@ class YOLOv3(object):
                 channel=512 // (2**i),
                 is_test=(not self.is_train),
                 name="yolo_block.{}".format(i))
-
+            self.checkpoints.append(tip)
+            self.checkpoints.append(tip)
             # out channel number = mask_num * (5 + class_num)
             num_filters = len(cfg.anchor_masks[i]) * (cfg.class_num + 5)
             block_out = fluid.layers.conv2d(
